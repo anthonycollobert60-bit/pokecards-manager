@@ -101,6 +101,25 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);heig
 .topbar-search input{width:100%;padding:7px 10px 7px 32px;border-radius:100px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'Nunito',sans-serif;font-size:13px;outline:none;transition:border-color var(--t)}
 .topbar-search input:focus{border-color:var(--accent)}
 .topbar-search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text2);pointer-events:none}
+.global-search-bar{display:flex;align-items:center;cursor:pointer;padding:7px 10px 7px 32px;border-radius:100px;border:1px solid var(--border);background:var(--surface);transition:border-color var(--t)}
+.global-search-bar:hover,.global-search-bar:focus{border-color:var(--accent);outline:none}
+.global-search-bar span{color:var(--text2);font-size:13px;font-family:'Nunito',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.coll-search{flex:1 1 90px;max-width:170px;min-width:60px;margin:0}
+.coll-search input{padding:7px 26px 7px 26px}
+.coll-search-clear{
+  position:absolute;
+  right:6px;
+  top:50%;
+  transform:translateY(-50%);
+  border:none;
+  background:none;
+  color:var(--text2);
+  cursor:pointer;
+  font-size:13px;
+  line-height:1;
+  padding:2px 4px;
+}
+.coll-search-clear:hover{color:var(--text)}
 .topbar-right{display:flex;align-items:center;gap:6px;margin-left:auto}
 .icon-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--surface);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);transition:all var(--t)}
 .icon-btn:hover{background:var(--surface2);color:var(--text)}
@@ -641,25 +660,12 @@ window.PokeCardsFCM = {
 
   <!-- TOPBAR -->
   <header class="topbar">
-    <div class="topbar-logo">
-      <svg width="26" height="26" viewBox="0 0 72 72">
-        <circle cx="36" cy="36" r="34" fill="none" stroke="#6366f1" stroke-width="2.5"/>
-        <path d="M2 36 Q36 36 70 36" stroke="#6366f1" stroke-width="2.5" fill="none"/>
-        <path d="M4 36 A32 32 0 0 1 68 36" fill="rgba(99,102,241,0.12)"/>
-        <circle cx="36" cy="36" r="8" fill="none" stroke="#6366f1" stroke-width="2.5"/>
-        <circle cx="36" cy="36" r="4" fill="#6366f1"/>
-      </svg>
-      <span>PokeDoubles</span>
-    </div>
     <div id="visitorHeaderTitle" class="visitor-header-title" style="display:none;">PokeDoubles Manager</div>
-      <div class="topbar-search">
+    <div class="topbar-search global-search-bar" onclick="openGlobalSearch()" title="Recherche globale" role="button" tabindex="0">
       <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input id="searchAll" type="text" placeholder="Rechercher…"/>
+      <span>Recherche globale</span>
     </div>
     <div class="topbar-right">
-      <button class="icon-btn global-search-btn" onclick="openGlobalSearch()" title="Recherche globale">
-        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      </button>
       <button class="icon-btn" onclick="clearCache()" title="Vider le cache">
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
       </button>
@@ -699,6 +705,11 @@ window.PokeCardsFCM = {
   <!-- SUBHEADER -->
   <div class="subheader" id="subheader">
     <div class="filter-bar">
+      <div class="topbar-search coll-search" id="collSearchWrap" style="display:none;">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="searchAll" type="text" placeholder="Rechercher dans cette collection…"/>
+        <button type="button" class="coll-search-clear" id="collSearchClear" onclick="clearCollSearch()" style="display:none;" title="Effacer">✕</button>
+      </div>
       <select class="filter-select" id="typeFilter">
         <option value="all">Toutes les raretés</option>
         <option value="c">Commune (C)</option>
@@ -1265,7 +1276,7 @@ function optImg(url){ if(!url) return 'https://via.placeholder.com/240x336?text=
 function showToast(msg,dur=2800){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),dur); }
 function toggleTheme(){ const h=document.documentElement; h.dataset.theme=h.dataset.theme==='dark'?'light':'dark'; localStorage.setItem('theme',h.dataset.theme); }
 (function(){ const s=localStorage.getItem('theme'); if(s) document.documentElement.dataset.theme=s; })();
-function resetFilters(){ document.getElementById('typeFilter').value='all'; document.getElementById('searchAll').value=''; }
+function resetFilters(){ document.getElementById('typeFilter').value='all'; document.getElementById('searchAll').value=''; const cb=document.getElementById('collSearchClear'); if(cb) cb.style.display='none'; }
 
 function clearCache() {
   localStorage.removeItem('pokecards_blocs');
@@ -1663,18 +1674,14 @@ function enterApp(){
     document.getElementById('userDot').innerHTML=effectiveUserAvatar(currentUser);
     const title=document.getElementById('visitorHeaderTitle');
     if(title) title.style.display='none';
-    const topSearch=document.querySelector('.topbar-search');
-    if(topSearch) topSearch.style.display='';
-    const globalBtn=document.querySelector('.global-search-btn');
+    const globalBtn=document.querySelector('.global-search-bar');
     if(globalBtn) globalBtn.style.display='';
   } else {
     document.getElementById('userLabel').textContent='Visiteur';
     document.getElementById('userDot').innerHTML='👁️';
     const title=document.getElementById('visitorHeaderTitle');
     if(title) title.style.display='';
-    const topSearch=document.querySelector('.topbar-search');
-    if(topSearch) topSearch.style.display='none';
-    const globalBtn=document.querySelector('.global-search-btn');
+    const globalBtn=document.querySelector('.global-search-bar');
     if(globalBtn) globalBtn.style.display='none';
   }
 
@@ -2319,10 +2326,16 @@ function countOwnedInBloc(blocId, viewOwner){
 
 function scrollTop(){ const b=document.getElementById('appBody'); if(b) b.scrollTop=0; }
 
+function showCollSearch(visible){
+  const w=document.getElementById('collSearchWrap');
+  if(w) w.style.display=visible?'':'none';
+}
+
 function renderBlocs(){
   currentBlocId=null; currentCollId=null; currentCardId=null;
   buildQuantitesIndex(); // reconstruire l'index si quantités fraîches
   resetFilters();
+  showCollSearch(false);
   scrollTop();
   document.getElementById('breadcrumbArea').innerHTML='';
   const body=document.getElementById('appBody');
@@ -2347,6 +2360,7 @@ function renderBlocs(){
 function renderCollections(blocId, blocNom){
   currentBlocId=blocId; currentCollId=null;
   resetFilters();
+  showCollSearch(false);
   scrollTop();
   document.getElementById('breadcrumbArea').innerHTML=`
     <button class="back-btn" onclick="renderBlocs()">
@@ -2376,6 +2390,7 @@ function renderCollections(blocId, blocNom){
 function renderCards(collId, collNom, blocId, blocNom){
   currentCollId=collId; currentBlocId=blocId;
   resetFilters();
+  showCollSearch(true);
   scrollTop();
   const collObj=collections.find(c=>c.id===collId);
   const totalLabel = (collObj && collObj.set_total) ? `Set: ${collObj.set_total}` : 'Set: ?';
@@ -2452,6 +2467,8 @@ function applyFilters(){
   if(!currentCollId) return;
   const q=(document.getElementById('searchAll').value||'').toLowerCase();
   const type=document.getElementById('typeFilter').value;
+  const clearBtn=document.getElementById('collSearchClear');
+  if(clearBtn) clearBtn.style.display=q?'':'none';
   const viewOwner=currentUser||null;
   const owners=viewOwner?[viewOwner]:OWNERS;
   document.querySelectorAll('.poke-card').forEach(el=>{
@@ -2470,6 +2487,14 @@ function applyFilters(){
     }
     el.style.display=visible?'':'none';
   });
+}
+
+function clearCollSearch(){
+  const input=document.getElementById('searchAll');
+  if(!input) return;
+  input.value='';
+  input.focus();
+  applyFilters();
 }
 
 document.getElementById('searchAll').addEventListener('input', applyFilters);
