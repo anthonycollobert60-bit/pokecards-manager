@@ -698,8 +698,39 @@ window.PokeCardsFCM = {
     <button class="btn-primary" onclick="doLogin()">Connexion →</button>
     <button class="btn-secondary" style="margin-top:10px" onclick="doSignup()">Créer un compte</button>
     <button class="auth-link" onclick="loginAsVisitor()">Accéder à la vente</button>
-    <div class="auth-help"></div>
+    <div class="auth-help">
+      <a href="#" onclick="showForgotPassword();return false;" style="color:var(--accent2);text-decoration:none;font-weight:800;">Mot de passe oublié ?</a>
+    </div>
     <div class="login-error" id="loginError">Connexion impossible. Vérifie tes identifiants.</div>
+  </div>
+
+  <!-- Mot de passe oublié : demande de lien par e-mail -->
+  <div class="login-card" id="forgotPasswordCard" style="display:none;margin-top:16px;">
+    <h2>Mot de passe oublié</h2>
+    <p style="font-size:13px;color:var(--text2);font-weight:600;margin-bottom:16px;">Indique ton e-mail : un lien de réinitialisation te sera envoyé.</p>
+    <div class="pin-field">
+      <label>Adresse e-mail</label>
+      <input class="pin-input auth-input" id="forgotEmail" type="email" placeholder="email@exemple.fr" autocomplete="email"/>
+    </div>
+    <button class="btn-primary" onclick="sendPasswordReset()">Envoyer le lien →</button>
+    <button class="btn-secondary" style="margin-top:10px" onclick="hideForgotPassword()">← Retour à la connexion</button>
+    <div class="auth-help" id="forgotPasswordMsg"></div>
+  </div>
+
+  <!-- Réinitialisation : après clic sur le lien reçu par e-mail -->
+  <div class="login-card" id="resetPasswordCard" style="display:none;margin-top:16px;">
+    <h2>Nouveau mot de passe</h2>
+    <p style="font-size:13px;color:var(--text2);font-weight:600;margin-bottom:16px;">Choisis un nouveau mot de passe pour ton compte.</p>
+    <div class="pin-field">
+      <label>Nouveau mot de passe</label>
+      <input class="pin-input auth-input" id="resetPassword1" type="password" placeholder="Au moins 6 caractères" autocomplete="new-password"/>
+    </div>
+    <div class="pin-field">
+      <label>Confirme le mot de passe</label>
+      <input class="pin-input auth-input" id="resetPassword2" type="password" placeholder="Retape le mot de passe" autocomplete="new-password"/>
+    </div>
+    <button class="btn-primary" onclick="confirmPasswordReset()">Valider le nouveau mot de passe →</button>
+    <div class="auth-help" id="resetPasswordMsg"></div>
   </div>
 </div>
 
@@ -1637,6 +1668,95 @@ async function authRequest(path, body, token){
   if(!res.ok){ throw new Error(data.error_description || data.msg || data.message || 'Erreur Supabase Auth'); }
   return data;
 }
+function showForgotPassword(){
+  hideLoginError();
+  const loginCard=document.querySelector('#screen-login .login-card');
+  if(loginCard) loginCard.style.display='none';
+  const card=document.getElementById('forgotPasswordCard');
+  if(card) card.style.display='';
+  const msg=document.getElementById('forgotPasswordMsg');
+  if(msg) msg.textContent='';
+  const emailInput=document.getElementById('forgotEmail');
+  const currentEmail=document.getElementById('authEmail')?.value||'';
+  if(emailInput){ emailInput.value=currentEmail; emailInput.focus(); }
+}
+function hideForgotPassword(){
+  const loginCard=document.querySelector('#screen-login .login-card');
+  if(loginCard) loginCard.style.display='';
+  const card=document.getElementById('forgotPasswordCard');
+  if(card) card.style.display='none';
+}
+async function sendPasswordReset(){
+  const msg=document.getElementById('forgotPasswordMsg');
+  const email=normalizeEmail(document.getElementById('forgotEmail')?.value);
+  if(!email){ if(msg){ msg.textContent='Entre ton adresse e-mail.'; msg.style.color='#ef4444'; } return; }
+  if(msg){ msg.textContent='Envoi en cours…'; msg.style.color='var(--text2)'; }
+  try{
+    const redirectTo=encodeURIComponent(location.origin+location.pathname);
+    await authRequest('recover?redirect_to='+redirectTo, {email});
+    if(msg){
+      msg.textContent='E-mail envoyé (si ce compte existe). Vérifie ta boîte de réception, puis clique sur le lien reçu.';
+      msg.style.color='var(--text2)';
+    }
+  }catch(e){
+    if(msg){ msg.textContent='Envoi impossible : '+e.message; msg.style.color='#ef4444'; }
+  }
+}
+async function confirmPasswordReset(){
+  const msg=document.getElementById('resetPasswordMsg');
+  const p1=document.getElementById('resetPassword1')?.value||'';
+  const p2=document.getElementById('resetPassword2')?.value||'';
+  if(p1.length<6){ if(msg){ msg.textContent='Le mot de passe doit contenir au moins 6 caractères.'; msg.style.color='#ef4444'; } return; }
+  if(p1!==p2){ if(msg){ msg.textContent='Les deux mots de passe ne correspondent pas.'; msg.style.color='#ef4444'; } return; }
+  const token=window._passwordRecoveryToken;
+  if(!token){ if(msg){ msg.textContent='Lien invalide ou expiré. Refais une demande.'; msg.style.color='#ef4444'; } return; }
+  if(msg){ msg.textContent='Mise à jour en cours…'; msg.style.color='var(--text2)'; }
+  try{
+    const res=await fetch(SUPABASE_URL+'/auth/v1/user',{
+      method:'PUT',
+      headers:{
+        'apikey': SUPABASE_KEY,
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+token
+      },
+      body: JSON.stringify({password:p1})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error_description||data.msg||data.message||'Erreur Supabase Auth');
+    if(msg){ msg.textContent='Mot de passe mis à jour ! Tu peux maintenant te connecter.'; msg.style.color='#22c55e'; }
+    window._passwordRecoveryToken=null;
+    setTimeout(()=>{
+      const resetCard=document.getElementById('resetPasswordCard');
+      if(resetCard) resetCard.style.display='none';
+      const loginCard=document.querySelector('#screen-login .login-card');
+      if(loginCard) loginCard.style.display='';
+      history.replaceState(null,'',location.pathname);
+    }, 1500);
+  }catch(e){
+    if(msg){ msg.textContent='Échec : '+e.message; msg.style.color='#ef4444'; }
+  }
+}
+function checkPasswordRecoveryLink(){
+  // Le lien reçu par e-mail redirige avec un fragment #access_token=...&type=recovery
+  if(!location.hash) return;
+  const params=new URLSearchParams(location.hash.slice(1));
+  if(params.get('type')!=='recovery') return;
+  const accessToken=params.get('access_token');
+  if(!accessToken) return;
+  window._passwordRecoveryToken=accessToken;
+  const loginCard=document.querySelector('#screen-login .login-card');
+  if(loginCard) loginCard.style.display='none';
+  const forgotCard=document.getElementById('forgotPasswordCard');
+  if(forgotCard) forgotCard.style.display='none';
+  const resetCard=document.getElementById('resetPasswordCard');
+  if(resetCard) resetCard.style.display='';
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', checkPasswordRecoveryLink);
+}else{
+  checkPasswordRecoveryLink();
+}
+
 async function doLogin(){
   hideLoginError();
   const email=normalizeEmail(document.getElementById('authEmail')?.value);
@@ -1674,6 +1794,7 @@ function loginAsVisitor(){
   enterApp();
 }
 async function tryRestoreAuth(){
+  if(window._passwordRecoveryToken) return; // laisse l'écran de réinitialisation visible
   const cb=document.getElementById('rememberLogin');
   if(cb) cb.checked=authIsPersistent();
 
